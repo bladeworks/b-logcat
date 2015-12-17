@@ -1,11 +1,11 @@
 from setuptools import setup
 
 setup(
-        name='blade-logcat',
+        name='b-logcat',
         version='1.0',
         author='Blade Liu',
         author_email='flyblade@gmail.com',
-        url='https://github.com/bladeworks/b-logcat'
+        url='https://github.com/bladeworks/b-logcat',
         py_modules=['logcat'],
         include_package_data=True,
         install_requires=[
