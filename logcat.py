@@ -21,10 +21,8 @@ append_show = True
 
 command_str = None
 my_filter = {}
-KEY_LEVEL = 'level'
-KEY_GREP = 'search'
-KEY_PID = 'pid'
-pid = None
+KEY_LEVEL, KEY_GREP, KEY_PID, KEY_TAG = 'level', 'search', 'pid', 'tag'
+pid_str = None
 
 is_active = True
 
@@ -32,7 +30,8 @@ is_active = True
 @click.option('--android_home', envvar='ANDROID_HOME', type=click.Path(exists=True, dir_okay=True),
         help='Specify the ANDROID_HOME or get from the envs.')
 @click.option('--pid', help='Only show the log for the specified application id.')
-def cli(android_home, pid):
+@click.option('--tag', help='Only show the log with the specified tag.')
+def cli(android_home, pid, tag):
     """ A tool to capture android log and filter data easily.
 
     Available runtime command including (just type the command and press ENTER):
@@ -44,10 +43,11 @@ def cli(android_home, pid):
     I or i: show log with level info and above
     D or d: show log with level debug and above
     V or v: show log with level verbose and above
-    pid=xxx: show log for the specified application with id xxx
-    /xxx: search log with string xxx
     r: reset the filter and show all the logs
     s: show the filter applied
+    /xxx: search log with string xxx
+    pid=xxx: show log for the specified application with id xxx
+    tag=xxx: show log with tag xxx
     """
     check_android_env(android_home)
     global adb
@@ -57,6 +57,8 @@ def cli(android_home, pid):
         _pid = get_pid(pid)
         if _pid:
             my_filter[KEY_PID] = _pid
+    if tag:
+        my_filter[KEY_TAG] = tag
     thread.start_new_thread(show_log, ())
     while is_active:
         global command_str
@@ -92,6 +94,8 @@ def get_pid(application_id):
     r = p.search(output)
     if r and r.group:
         pid = r.group('pid')
+        global pid_str
+        pid_str = application_id
     else:
         pid = None
     return pid
@@ -104,10 +108,10 @@ def check_android_env(android_home):
         _info("ANDROID_HOME is set to {}".format(android_home))
 
 def _error(s):
-    click.echo(click.style(s, **level_render['E']))
+    click.echo(click.style(s, fg='white', bg='red', bold=True))
 
 def _info(s):
-    click.echo(click.style(s, **level_render['I']))
+    click.echo(click.style(s, fg='white', bg='blue', bold=True))
 
 level_render = {
     'F': {'fg': 'red', 'bg': 'white'},
@@ -135,11 +139,15 @@ def _init_command():
             my_filter = {}
             return True
         if command_str.upper() == 'S':
-            _info("Here is the current filter applied:")
             if not my_filter:
                 _info("No filter applied now.")
-            for k, v in my_filter.iteritems():
-                _info("{}: {}".format(k, v))
+            else:
+                _info("Filter applied:")
+                for k, v in my_filter.iteritems():
+                    if k == KEY_PID:
+                        _info("{}: {}({})".format(k, pid_str, v))
+                    else:
+                        _info("{}: {}".format(k, v))
             return False
         if command_str.upper() in log_levels:
             my_filter[KEY_LEVEL] = command_str.upper()
@@ -148,7 +156,7 @@ def _init_command():
             pid = get_pid(command_str.partition('=')[2].strip())
             if pid is None:
                 _error('The app with {} is not running! Please try to input another filter.'.format(command_str))
-                del my_filter[KEY_PID]
+                my_filter.pop(KEY_PID, None)
                 return False
             my_filter[KEY_PID] = pid
             return True
@@ -156,9 +164,14 @@ def _init_command():
             if len(command_str) > 1:
                 my_filter[KEY_GREP] = command_str[1:]
             else:
-                del my_filter[KEY_GREP]
+                my_filter.pop(KEY_GREP, None)
             return True
-
+        if command_str.startswith('tag='):
+            tag=command_str.partition('=')[2].strip()
+            if tag:
+                my_filter[KEY_TAG] = tag
+                return True
+            return False
     return False
 
 def _filter(log):
@@ -167,10 +180,13 @@ def _filter(log):
             if log_to_int[my_filter[KEY_LEVEL]] < log_to_int[log.level]:
                 return False
         if KEY_GREP in my_filter:
-            if my_filter[KEY_GREP] not in log.message:
+            if my_filter[KEY_GREP].lower() not in log.message.lower():
                 return False
         if KEY_PID in my_filter:
             if log.pid != my_filter[KEY_PID]:
+                return False
+        if KEY_TAG in my_filter:
+            if log.tag.lower() != my_filter[KEY_TAG].lower():
                 return False
     return True
 
