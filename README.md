@@ -10,7 +10,9 @@ B-logcat is a small tool to view / filter the android logs.
 pip install b-logcat
 ```
 
-And then just run the following command to show the help message:
+# Usage
+
+Run the following command to show the help message:
 
 ```
 logcat --help
