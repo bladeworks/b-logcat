@@ -146,6 +146,8 @@ def _init_command():
                 for k, v in my_filter.iteritems():
                     if k == KEY_PID:
                         _info("{}: {}({})".format(k, pid_str, v))
+                    elif k == KEY_GREP:
+                        _info("{}: {}".format(k, v.pattern))
                     else:
                         _info("{}: {}".format(k, v))
             return False
@@ -162,7 +164,7 @@ def _init_command():
             return True
         if command_str.startswith('/'):
             if len(command_str) > 1:
-                my_filter[KEY_GREP] = command_str[1:]
+                my_filter[KEY_GREP] = re.compile(command_str[1:])
             else:
                 my_filter.pop(KEY_GREP, None)
             return True
@@ -180,7 +182,7 @@ def _filter(log):
             if log_to_int[my_filter[KEY_LEVEL]] < log_to_int[log.level]:
                 return False
         if KEY_GREP in my_filter:
-            if my_filter[KEY_GREP].lower() not in log.message.lower():
+            if my_filter[KEY_GREP].search(log.message, re.IGNORECASE) is None:
                 return False
         if KEY_PID in my_filter:
             if log.pid != my_filter[KEY_PID]:
