@@ -26,6 +26,8 @@ pid_str = None
 
 is_active = True
 
+adb_cmd = None
+
 @click.command()
 @click.option('--android_home', envvar='ANDROID_HOME', type=click.Path(exists=True, dir_okay=True),
         help='Specify the ANDROID_HOME or get from the envs.')
@@ -43,6 +45,7 @@ def cli(android_home, pid, tag):
     I or i: show log with level info and above
     D or d: show log with level debug and above
     V or v: show log with level verbose and above
+    Q or q: exit the program
     r: reset the filter and show all the logs
     s: show the filter applied
     /xxx: search log with string xxx
@@ -76,7 +79,7 @@ def clear_and_filter_logs():
     append_show = True
 
 def show_log():
-    with subprocess.Popen([adb, 'logcat', '-v', 'threadtime'], stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as proc:
+    with subprocess.Popen(adb_cmd + ['logcat', '-v', 'threadtime'], stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as proc:
         while proc.poll() is None:
             line = proc.stdout.readline()
             if line:
@@ -87,9 +90,23 @@ def show_log():
 
 def check_connected_devices():
     output = subprocess.check_output([adb, 'devices'])
+    devices = [line.split()[0] for line in output.splitlines() if line.endswith('device')]
+    global adb_cmd
+    adb_cmd = [adb]
+    if len(devices) == 0:
+        _error("No device connected.")
+        sys.exit(1)
+    if len(devices) > 1:
+        # Let the user select the device
+        value = click.prompt("\n".join(["(" + str(idx + 1) + ") " + val for idx, val in enumerate(devices)]) + "\nPlease select the device (input the number)", type=int)
+        if (value < 1 or value > len(devices)):
+            _error("Invalid selection")
+            sys.exit(1)
+        else:
+            adb_cmd = adb_cmd + ['-s', devices[value - 1]]
 
 def get_pid(application_id):
-    output = subprocess.check_output([adb, 'shell', 'ps'])
+    output = subprocess.check_output(adb_cmd + ['shell', 'ps'])
     p = re.compile(r'\w*\s*(?P<pid>\d+).*{}'.format(application_id))
     r = p.search(output)
     if r and r.group:
@@ -174,6 +191,8 @@ def _init_command():
                 my_filter[KEY_TAG] = tag
                 return True
             return False
+        if command_str.lower() == 'q':
+            sys.exit(0)
     return False
 
 def _filter(log):

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
         name='b-logcat',
-        version='1.0.2',
+        version='1.0.3',
         author='Blade Liu',
         author_email='flyblade@gmail.com',
         url='https://github.com/bladeworks/b-logcat',
