@@ -89,8 +89,9 @@ def show_log():
     _error("The adb was disconnected. Please press ENTER to exit the app.")
 
 def check_connected_devices():
-    output = subprocess.check_output([adb, 'devices'])
-    devices = [line.split()[0] for line in output.splitlines() if line.endswith('device')]
+    output = subprocess.check_output([adb, 'devices', '-l'])
+    devices = [line.split()[0] for line in output.splitlines() if 'model:' in line]
+    models = [line.partition('model:')[2].split()[0] for line in output.splitlines() if 'model:' in line]
     global adb_cmd
     adb_cmd = [adb]
     if len(devices) == 0:
@@ -98,7 +99,7 @@ def check_connected_devices():
         sys.exit(1)
     if len(devices) > 1:
         # Let the user select the device
-        value = click.prompt("\n".join(["(" + str(idx + 1) + ") " + val for idx, val in enumerate(devices)]) + "\nPlease select the device (input the number)", type=int)
+        value = click.prompt("\n".join(["(" + str(idx + 1) + ") " + val for idx, val in enumerate(models)]) + "\nPlease select the device (input the number)", type=int)
         if (value < 1 or value > len(devices)):
             _error("Invalid selection")
             sys.exit(1)
